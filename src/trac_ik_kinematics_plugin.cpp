@@ -54,6 +54,7 @@ namespace trac_ik_kinematics_plugin
 
     KDL::Chain chain;
     bool position_ik_;
+    double tolerances_pitch_;
     const std::vector<std::string>& getJointNames() const { return joint_names_; }
     const std::vector<std::string>& getLinkNames() const { return link_names_; }
 
@@ -66,7 +67,7 @@ namespace trac_ik_kinematics_plugin
     /** @class
      *  @brief Interface for an TRAC-IK kinematics plugin
      */
-    TRAC_IKKinematicsPlugin(): active_(false), position_ik_(false){}
+    TRAC_IKKinematicsPlugin(): active_(false), position_ik_(false), tolerances_pitch_(1e-3){}
 
     ~TRAC_IKKinematicsPlugin() {
     }
@@ -286,6 +287,7 @@ namespace trac_ik_kinematics_plugin
                     (group_name+"/position_only_ik").c_str());
 
     node_handle.param(group_name+"/position_only_ik", position_ik_, false);
+    node_handle.param(group_name+"/tolerance_pitch", tolerances_pitch_, 1e-3);
 
     ROS_INFO_NAMED("trac-ik plugin","Looking in private handle: %s for param name: %s",
                     node_handle.getNamespace().c_str(),
@@ -487,7 +489,9 @@ namespace trac_ik_kinematics_plugin
         in(z)=ik_seed_state[z];
 
     KDL::Twist bounds=KDL::Twist::Zero();
-    
+
+    bounds.rot.y(tolerances_pitch_);
+
     if (position_ik_)  {
       bounds.rot.x(std::numeric_limits<float>::max());
       bounds.rot.y(std::numeric_limits<float>::max());
