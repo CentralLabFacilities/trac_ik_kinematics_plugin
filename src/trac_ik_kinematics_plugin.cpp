@@ -54,7 +54,10 @@ namespace trac_ik_kinematics_plugin
 
     KDL::Chain chain;
     bool position_ik_;
+    double tolerances_yaw_;
     double tolerances_pitch_;
+    double tolerances_roll_;
+    double tolerances_pos_;
     const std::vector<std::string>& getJointNames() const { return joint_names_; }
     const std::vector<std::string>& getLinkNames() const { return link_names_; }
 
@@ -67,7 +70,8 @@ namespace trac_ik_kinematics_plugin
     /** @class
      *  @brief Interface for an TRAC-IK kinematics plugin
      */
-    TRAC_IKKinematicsPlugin(): active_(false), position_ik_(false), tolerances_pitch_(1e-3){}
+    TRAC_IKKinematicsPlugin(): active_(false), position_ik_(false), tolerances_yaw_(1e-2),
+    tolerances_pitch_(1e-2),tolerances_roll_(1e-3),tolerances_pos_(1e-3){}
 
     ~TRAC_IKKinematicsPlugin() {
     }
@@ -201,7 +205,7 @@ namespace trac_ik_kinematics_plugin
                                            double search_discretization)
   {
     setValues(robot_description, group_name, base_name, tip_name, search_discretization);
-
+    ROS_DEBUG_STREAM_NAMED("trac_ik","Basname is: "<< base_name << " tip is : " << tip_name);
     ros::NodeHandle node_handle("~");
 
     urdf::Model robot_model;
@@ -287,7 +291,10 @@ namespace trac_ik_kinematics_plugin
                     (group_name+"/position_only_ik").c_str());
 
     node_handle.param(group_name+"/position_only_ik", position_ik_, false);
-    node_handle.param(group_name+"/tolerance_pitch", tolerances_pitch_, 1e-3);
+    node_handle.param(group_name+"/tolerance_yaw", tolerances_yaw_, 1e-2);
+    node_handle.param(group_name+"/tolerance_pitch", tolerances_pitch_, 1e-2);
+    node_handle.param(group_name+"/tolerance_roll", tolerances_roll_, 1e-2);
+    node_handle.param(group_name+"/tolerance_pos", tolerances_pos_, 1e-3);
 
     ROS_INFO_NAMED("trac-ik plugin","Looking in private handle: %s for param name: %s",
                     node_handle.getNamespace().c_str(),
@@ -490,7 +497,13 @@ namespace trac_ik_kinematics_plugin
 
     KDL::Twist bounds=KDL::Twist::Zero();
 
+    bounds.rot.x(tolerances_yaw_);
     bounds.rot.y(tolerances_pitch_);
+    bounds.rot.z(tolerances_roll_);
+    
+    bounds.vel.x(tolerances_pos_);
+    bounds.vel.y(tolerances_pos_);
+    bounds.vel.z(tolerances_pos_);
 
     if (position_ik_)  {
       bounds.rot.x(std::numeric_limits<float>::max());
@@ -533,6 +546,14 @@ namespace trac_ik_kinematics_plugin
           if(error_code.val == moveit_msgs::MoveItErrorCodes::SUCCESS)
             {
               ROS_DEBUG_STREAM_NAMED("trac_ik","Solution passes callback");
+              ROS_DEBUG_STREAM_NAMED("trac_ik","FOUND solution");
+              ROS_DEBUG_STREAM_NAMED("trac_ik","pose: " << ik_pose.position.x << ","
+                                              << ik_pose.position.y << ","
+                                              << ik_pose.position.z << ","
+                                              << ik_pose.orientation.x << ","
+                                              << ik_pose.orientation.y << ","
+                                              << ik_pose.orientation.z << ","
+                                              << ik_pose.orientation.w); 
               return true;
             }
           else
@@ -542,10 +563,21 @@ namespace trac_ik_kinematics_plugin
             }
         }
       else
+      {
+          ROS_DEBUG_STREAM_NAMED("trac_ik","FOUND solution, but no callback provided");
           return true; // no collision check callback provided
+      }
     }
 
     error_code.val = moveit_msgs::MoveItErrorCodes::NO_IK_SOLUTION;
+    ROS_DEBUG_STREAM_NAMED("trac_ik","NO OK SOLution");
+    ROS_DEBUG_STREAM_NAMED("trac_ik","pose: " << ik_pose.position.x << ","
+                                              << ik_pose.position.y << ","
+                                              << ik_pose.position.z << ","
+                                              << ik_pose.orientation.x << ","
+                                              << ik_pose.orientation.y << ","
+                                              << ik_pose.orientation.z << ","
+                                              << ik_pose.orientation.w); 
     return false;
   }
 
